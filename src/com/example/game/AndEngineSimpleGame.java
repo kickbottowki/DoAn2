@@ -27,13 +27,23 @@ import org.anddev.andengine.entity.scene.background.ColorBackground;
 import org.anddev.andengine.entity.sprite.Sprite;
 import org.anddev.andengine.entity.text.ChangeableText;
 import org.anddev.andengine.entity.util.FPSLogger;
+import org.anddev.andengine.entity.scene.menu.MenuScene;
+import org.anddev.andengine.entity.scene.menu.MenuScene.IOnMenuItemClickListener;
+import org.anddev.andengine.entity.scene.menu.item.IMenuItem;
+import org.anddev.andengine.entity.scene.menu.item.SpriteMenuItem;
+import org.anddev.andengine.entity.scene.menu.item.decorator.ScaleMenuItemDecorator;
 import org.anddev.andengine.input.touch.TouchEvent;
 import org.anddev.andengine.opengl.font.Font;
 import org.anddev.andengine.opengl.texture.TextureOptions;
 import org.anddev.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
 import org.anddev.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
+import org.anddev.andengine.opengl.texture.atlas.bitmap.BuildableBitmapTextureAtlas;
+import org.anddev.andengine.opengl.texture.atlas.bitmap.source.IBitmapTextureAtlasSource;
+
 import org.anddev.andengine.ui.activity.BaseGameActivity;
+
+
 
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -41,8 +51,8 @@ import android.view.Display;
 import android.view.KeyEvent;
 import android.widget.Toast;
 
-public class AndEngineSimpleGame extends BaseGameActivity implements
-		IOnSceneTouchListener {
+
+public class AndEngineSimpleGame extends BaseGameActivity implements IOnSceneTouchListener, IOnMenuItemClickListener {
 
 	private Camera mCamera;
 
@@ -65,9 +75,18 @@ public class AndEngineSimpleGame extends BaseGameActivity implements
 
 	// the main scene for the game
 	private Scene mMainScene;
+	private MenuScene menuScene;
 	private Sprite player;
 	private Sprite playgame;
 
+	private final int MENU_PLAY = 0;
+	private final int MENU_OPT = 1;
+	 
+	private BitmapTextureAtlas menuBtnTex;
+	private TextureRegion menuBtnPlayReg;
+	private TextureRegion menuBtnOptionsReg;
+	    
+	private BuildableBitmapTextureAtlas menuTextureAtlas;
 
 	// win/fail sprites
 	private Sprite winSprite;
@@ -82,6 +101,7 @@ public class AndEngineSimpleGame extends BaseGameActivity implements
 	private boolean runningFlag = false;
 	private boolean pauseFlag = false;
 	private boolean startFlag;//kiem tra xem da choi chua
+	private boolean onMenu = true;
 	private int state;
 
 	
@@ -93,7 +113,7 @@ public class AndEngineSimpleGame extends BaseGameActivity implements
 	
 	private int hitCount;
 	private final int maxScore = 10;
-
+	
 	@Override
 	public Engine onLoadEngine() {
 		
@@ -151,7 +171,18 @@ public class AndEngineSimpleGame extends BaseGameActivity implements
 						256);
 		mPlayGame= BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBitmapTextureAtlas, this, "paused.png",0,64);
-	
+		
+		menuBtnTex = new BitmapTextureAtlas(512, 512,
+				TextureOptions.BILINEAR_PREMULTIPLYALPHA);
+		
+		menuBtnPlayReg = BitmapTextureAtlasTextureRegionFactory
+				.createFromAsset(menuBtnTex, this, "play2.png",
+						0, 0);
+		menuBtnOptionsReg = BitmapTextureAtlasTextureRegionFactory
+				.createFromAsset(menuBtnTex, this, "options.png",
+						0, 82);
+		
+
 
 		// preparing the font
 		mFont = new Font(mFontTexture, Typeface.create(Typeface.DEFAULT,
@@ -160,6 +191,7 @@ public class AndEngineSimpleGame extends BaseGameActivity implements
 		// loading textures in the engine
 		mEngine.getTextureManager().loadTexture(mBitmapTextureAtlas);
 		mEngine.getTextureManager().loadTexture(mFontTexture);
+		mEngine.getTextureManager().loadTexture(menuBtnTex);
 		mEngine.getFontManager().loadFont(mFont);
 
 		SoundFactory.setAssetBasePath("mfx/");
@@ -175,7 +207,7 @@ public class AndEngineSimpleGame extends BaseGameActivity implements
 		}
 
 		MusicFactory.setAssetBasePath("mfx/");
-//setLooping(true) am nhac se duoc lap lai chô den khi ung dung dong hoac thiet lap false
+		//setLooping(true) am nhac se duoc lap lai chô den khi ung dung dong hoac thiet lap false
 		try {
 			backgroundMusic = MusicFactory.createMusicFromAsset(mEngine
 					.getMusicManager(), this, "background_music.wav");
@@ -188,7 +220,10 @@ public class AndEngineSimpleGame extends BaseGameActivity implements
 			e.printStackTrace();
 		}
 
+		
+
 	}
+	
 
 	@Override
 	public Scene onLoadScene() {
@@ -218,11 +253,33 @@ public class AndEngineSimpleGame extends BaseGameActivity implements
 		winSprite.setVisible(false);
 		failSprite.setVisible(false);
 
+		
+
 		// mau nen
 		mMainScene = new Scene();
 		mMainScene
 				.setBackground(new ColorBackground(0.09804f, 0.6274f, 0.8784f));
 		mMainScene.setOnSceneTouchListener(this);
+
+		menuScene = new MenuScene(mCamera);
+		
+		final IMenuItem playButton = new ScaleMenuItemDecorator(
+			new SpriteMenuItem(MENU_PLAY, menuBtnPlayReg),
+			1.1f, 1);
+		
+		final IMenuItem optButton = new ScaleMenuItemDecorator(
+				new SpriteMenuItem(MENU_OPT, menuBtnOptionsReg), 1.1f, 1);
+		final Display display2 = getWindowManager().getDefaultDisplay();
+		playButton.setPosition(display2.getWidth() / 2 - playButton.getWidth() / 2, 100);
+		optButton.setPosition(display2.getWidth() / 2 - optButton.getWidth() / 2, 200);
+		menuScene.addMenuItem(playButton);
+		menuScene.addMenuItem(optButton);
+		menuScene.buildAnimations();
+		 
+		menuScene.setBackgroundEnabled(false);
+		menuScene.setOnMenuItemClickListener(this);
+		 
+		mMainScene.setChildScene(menuScene);
 
 		// toa do cho nguoi choi
 		//bat dau
@@ -251,6 +308,10 @@ public class AndEngineSimpleGame extends BaseGameActivity implements
 		// vi tri
 		score.setPosition(mCamera.getWidth() - score.getWidth() - 5, 5);
 
+		
+		return mMainScene;
+	}
+	public void playGame() {
 		createSpriteSpawnTimeHandler();
 		mMainScene.registerUpdateHandler(detect);
 
@@ -259,9 +320,7 @@ public class AndEngineSimpleGame extends BaseGameActivity implements
 		// cờ chạy bang true
 
 		restart();
-		return mMainScene;
 	}
-
 	@Override
 	public void onLoadComplete() {
 		if(startFlag==false  )//&& countGame==0
@@ -275,6 +334,7 @@ public class AndEngineSimpleGame extends BaseGameActivity implements
 		}
 		
 	}
+	
 
 	// TimerHandler for collision detection and cleaning up
 	IUpdateHandler detect = new IUpdateHandler() {
@@ -374,6 +434,7 @@ public class AndEngineSimpleGame extends BaseGameActivity implements
 				return false;
 			}
 		}*/
+		if (onMenu) return false;
 		startFlag=true;
 		if(startFlag==true && state==0)
 		{
@@ -616,7 +677,21 @@ public class AndEngineSimpleGame extends BaseGameActivity implements
 		mEngine.stop();
 		super.onPauseGame();
 	}
-	
-	
+
+	@Override
+	public boolean onMenuItemClicked(MenuScene arg0, IMenuItem arg1,
+			float arg2, float arg3) {
+		switch (arg1.getID()) {
+			case MENU_PLAY:
+				this.playGame();
+				this.onMenu = false;
+				break;
+			case MENU_OPT:
+				break;
+		 
+		}
+		return false;
+	}
+
 }
 
