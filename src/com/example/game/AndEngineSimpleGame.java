@@ -25,6 +25,7 @@ import org.anddev.andengine.entity.scene.Scene;
 import org.anddev.andengine.entity.scene.Scene.IOnSceneTouchListener;
 import org.anddev.andengine.entity.scene.background.ColorBackground;
 import org.anddev.andengine.entity.sprite.Sprite;
+import org.anddev.andengine.entity.sprite.TiledSprite;
 import org.anddev.andengine.entity.text.ChangeableText;
 import org.anddev.andengine.entity.util.FPSLogger;
 import org.anddev.andengine.entity.scene.menu.MenuScene;
@@ -38,6 +39,7 @@ import org.anddev.andengine.opengl.texture.TextureOptions;
 import org.anddev.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
 import org.anddev.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
+import org.anddev.andengine.opengl.texture.region.TiledTextureRegion;
 import org.anddev.andengine.opengl.texture.atlas.bitmap.BuildableBitmapTextureAtlas;
 import org.anddev.andengine.opengl.texture.atlas.bitmap.source.IBitmapTextureAtlasSource;
 
@@ -52,7 +54,8 @@ import android.view.KeyEvent;
 import android.widget.Toast;
 
 
-public class AndEngineSimpleGame extends BaseGameActivity implements IOnSceneTouchListener, IOnMenuItemClickListener {
+public class AndEngineSimpleGame extends BaseGameActivity implements IOnSceneTouchListener, 
+				IOnMenuItemClickListener {
 
 	private Camera mCamera;
 
@@ -76,15 +79,26 @@ public class AndEngineSimpleGame extends BaseGameActivity implements IOnSceneTou
 	// the main scene for the game
 	private Scene mMainScene;
 	private MenuScene menuScene;
+	private MenuScene menuMusicScene;
 	private Sprite player;
 	private Sprite playgame;
 
 	private final int MENU_PLAY = 0;
 	private final int MENU_OPT = 1;
-	 
+	private final int MENU_PLAY_PAUSE = 3;
+	private final int UNMUTE = 1;
+	private final int MUTE = 0;
+	
+	// menu
 	private BitmapTextureAtlas menuBtnTex;
 	private TextureRegion menuBtnPlayReg;
 	private TextureRegion menuBtnOptionsReg;
+
+	// music
+	private BitmapTextureAtlas menuMusicBtnTex;
+	private TextureRegion menuMusicBtnToggleReg;
+	private TiledTextureRegion mButtonTextureRegion;
+	private TiledSprite mMuteButton;
 	    
 	private BuildableBitmapTextureAtlas menuTextureAtlas;
 
@@ -172,6 +186,7 @@ public class AndEngineSimpleGame extends BaseGameActivity implements IOnSceneTou
 		mPlayGame= BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBitmapTextureAtlas, this, "paused.png",0,64);
 		
+		// menu play
 		menuBtnTex = new BitmapTextureAtlas(512, 512,
 				TextureOptions.BILINEAR_PREMULTIPLYALPHA);
 		
@@ -182,7 +197,24 @@ public class AndEngineSimpleGame extends BaseGameActivity implements IOnSceneTou
 				.createFromAsset(menuBtnTex, this, "options.png",
 						0, 82);
 		
+		// menu music
 
+		/*menuMusicBtnTex = new BitmapTextureAtlas(200, 200,
+				TextureOptions.BILINEAR_PREMULTIPLYALPHA);
+		
+		menuMusicBtnToggleReg = BitmapTextureAtlasTextureRegionFactory
+				.createFromAsset(menuMusicBtnTex, this, "play_pause.png",
+						0, 0);*/
+		menuTextureAtlas = new BuildableBitmapTextureAtlas(512, 512,
+				TextureOptions.BILINEAR_PREMULTIPLYALPHA);
+		/*mButtonTextureRegion = 
+			BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(menuTextureAtlas,
+			this, "play_pause.png", 32, 32);*/
+		
+		mButtonTextureRegion = 
+			BitmapTextureAtlasTextureRegionFactory
+				.createTiledFromAsset(mBitmapTextureAtlas,
+							this, "play_pause.png", 0, 0, 1, 1);
 
 		// preparing the font
 		mFont = new Font(mFontTexture, Typeface.create(Typeface.DEFAULT,
@@ -223,7 +255,10 @@ public class AndEngineSimpleGame extends BaseGameActivity implements IOnSceneTou
 		
 
 	}
-	
+	public void onPopulateScene() {
+		
+		
+	}
 
 	@Override
 	public Scene onLoadScene() {
@@ -261,6 +296,8 @@ public class AndEngineSimpleGame extends BaseGameActivity implements IOnSceneTou
 				.setBackground(new ColorBackground(0.09804f, 0.6274f, 0.8784f));
 		mMainScene.setOnSceneTouchListener(this);
 
+
+		// play/option menu
 		menuScene = new MenuScene(mCamera);
 		
 		final IMenuItem playButton = new ScaleMenuItemDecorator(
@@ -280,6 +317,53 @@ public class AndEngineSimpleGame extends BaseGameActivity implements IOnSceneTou
 		menuScene.setOnMenuItemClickListener(this);
 		 
 		mMainScene.setChildScene(menuScene);
+
+		// music menu
+		/*menuMusicScene = new MenuScene(mCamera);
+
+		final IMenuItem playPauseButton = new ScaleMenuItemDecorator(
+			new SpriteMenuItem(MENU_PLAY_PAUSE, menuMusicBtnToggleReg),
+			1.1f, 1);
+
+		playPauseButton.setPosition(10, 10);
+		menuMusicScene.addMenuItem(playPauseButton);
+
+		mMainScene.setChildScene(menuMusicScene);*/
+
+		mMuteButton = new TiledSprite(0, 0, mButtonTextureRegion) {
+
+			@Override
+			public boolean onAreaTouched(TouchEvent pSceneTouchEvent, 
+					float pTouchAreaLocalX, 
+					float pTouchAreaLocalY) {
+				/* In the event the mute button is pressed down on... */
+				if (pSceneTouchEvent.isActionDown()) {
+					if (backgroundMusic.isPlaying()) {
+						/* If music is playing, pause it and set tile index to 
+						MUTE */
+						this.setCurrentTileIndex(MUTE);
+						backgroundMusic.pause();
+					} else {
+						this.setCurrentTileIndex(UNMUTE);
+						backgroundMusic.play();
+					}
+					return true;
+				}
+				return super.onAreaTouched(pSceneTouchEvent, pTouchAreaLocalX, pTouchAreaLocalY);
+			}
+		};
+
+		/* Set the current tile index to unmuted on application startup */
+		mMuteButton.setCurrentTileIndex(UNMUTE);
+		/* Register and attach the mMuteButton to the Scene */
+		mMainScene.registerTouchArea(mMuteButton);
+		
+		/* Set the backgroundMusic object to loop once it reaches the track's 
+		end */
+		backgroundMusic.setLooping(true);
+		/* Play the backgroundMusic object */
+		//backgroundMusic.play();
+
 
 		// toa do cho nguoi choi
 		//bat dau
@@ -546,6 +630,7 @@ public class AndEngineSimpleGame extends BaseGameActivity implements IOnSceneTou
 				mMainScene.attachChild(player, 0);
 			//	mMainScene.attachChild(playgame);
 				mMainScene.attachChild(score);
+				mMainScene.attachChild(mMuteButton);
 			}
 		});
 
@@ -688,10 +773,16 @@ public class AndEngineSimpleGame extends BaseGameActivity implements IOnSceneTou
 				break;
 			case MENU_OPT:
 				break;
+
+			case MENU_PLAY_PAUSE:
+				/*if (this.isMusicPlaying()) {
+					this.pause()
+				}*/
+				break;
 		 
 		}
 		return false;
 	}
-
+	
 }
 
